@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมเก็บดาวหลบอัศวินหุ่นยนต์ (สำหรับเด็ก ป.6)</title>
+    <!-- โหลด Font Google ให้ตัวหนังสือสวยงามอ่านง่ายสำหรับเด็ก -->
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- โหลด Tailwind CSS สำหรับจัดตกแต่งหน้าตาเว็บไซต์ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Mitr', sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* ตกแต่ง Canvas ให้มีกรอบเงาเรืองแสงสดใส */
+        #gameCanvas {
+            background: linear-gradient(to bottom, #0f172a, #1e1b4b, #2e1065);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(129, 140, 248, 0.3);
+            border: 4px solid #818cf8;
+            border-radius: 16px;
+        }
+
+        /* เอฟเฟกต์การปุ่มกดให้เด้งดึ๋ง น่ารัก */
+        .btn-bounce {
+            transition: all 0.1s ease;
+        }
+        .btn-bounce:active {
+            transform: scale(0.92);
+        }
+
+        /* ตกแต่งแถบแจ้งเตือนระดับคะแนน */
+        .badge-glow {
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-3 sm:p-6 text-white overflow-x-hidden">
+
+    <!-- กรอบหลักของตัวเกม -->
+    <div class="w-full max-w-2xl flex flex-col items-center">
+        
+        <!-- หัวข้อเกม -->
+        <header class="text-center mb-3">
+            <h1 class="text-2xl sm:text-4xl font-bold text-amber-300 drop-shadow-md tracking-wide">
+                ⭐ เกมเก็บดาวหลบอัศวินหุ่นยนต์ 🤖
+            </h1>
+            <p class="text-xs sm:text-sm text-indigo-200 mt-1">
+                สื่อการเรียนรู้คอมพิวเตอร์ ป.6 | ใช้ปุ่ม <span class="bg-indigo-700 px-2 py-0.5 rounded text-amber-300">⬅️ ซ้าย</span> <span class="bg-indigo-700 px-2 py-0.5 rounded text-amber-300">ขวา ➡️</span> ในการควบคุม
+            </p>
+        </header>
+
+        <!-- แผงแสดงคะแนนและพลังชีวิตแบบ Real-time -->
+        <div class="w-full bg-indigo-950/80 backdrop-blur border border-indigo-500/30 rounded-2xl p-3 sm:p-4 mb-3 flex justify-between items-center shadow-lg">
+            <!-- คะแนน -->
+            <div class="flex items-center gap-2">
+                <span class="text-2xl sm:text-3xl">⭐</span>
+                <div>
+                    <div class="text-xs text-indigo-300 font-semibold">คะแนน (Score)</div>
+                    <div id="scoreText" class="text-xl sm:text-3xl font-bold text-amber-400">0</div>
+                </div>
+            </div>
+
+            <!-- คะแนนสูงสุด -->
+            <div class="flex items-center gap-2">
+                <span class="text-2xl sm:text-3xl">🏆</span>
+                <div>
+                    <div class="text-xs text-indigo-300 font-semibold">สถิติสูงสุด</div>
+                    <div id="highScoreText" class="text-xl sm:text-2xl font-bold text-emerald-400">0</div>
+                </div>
+            </div>
+
+            <!-- พลังชีวิต -->
+            <div class="flex items-center gap-2">
+                <span class="text-2xl sm:text-3xl">❤️</span>
+                <div>
+                    <div class="text-xs text-indigo-300 font-semibold">พลังชีวิต (Lives)</div>
+                    <div id="livesContainer" class="flex gap-1 text-xl sm:text-2xl">
+                        <span>❤️</span><span>❤️</span><span>❤️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- พื้นที่แสดงผลเกม (Canvas) -->
+        <div class="relative w-full flex justify-center items-center">
+            <canvas id="gameCanvas" width="480" height="560" class="w-full h-auto max-w-[480px] aspect-[6/7]"></canvas>
+
+            <!-- หน้าต่างเริ่มเกม / จบเกม (Modal Overlay) -->
+            <div id="gameModal" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md rounded-2xl flex flex-col justify-center items-center p-6 text-center z-10 transition-all duration-300">
+                <div class="text-5xl mb-2" id="modalEmoji">🚀</div>
+                <h2 id="modalTitle" class="text-2xl sm:text-3xl font-bold text-amber-300 mb-2">พร้อมรับภารกิจหรือยัง?</h2>
+                <p id="modalDesc" class="text-sm sm:text-base text-indigo-200 mb-6 max-w-xs">
+                    ช่วยตัวละครเก็บดาวให้ได้มากที่สุด และคอยหลบอัศวินหุ่นยนต์กับระเบิดที่ตกลงมานะ!
+                </p>
+                <button id="startBtn" onclick="startGame()" class="btn-bounce bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-lg px-8 py-3 rounded-full shadow-lg border-2 border-emerald-300 cursor-pointer">
+                    🎮 เริ่มเล่นเกมเลย!
+                </button>
+            </div>
+        </div>
+
+        <!-- ปุ่มควบคุมสำหรับหน้าจอสัมผัส (Mobile / Tablet Touch Controls) -->
+        <div class="w-full flex justify-between items-center gap-4 mt-4 px-2 sm:hidden">
+            <button id="btnLeft" class="btn-bounce flex-1 bg-indigo-700/80 active:bg-indigo-500 border-2 border-indigo-400 text-white font-bold py-4 rounded-2xl text-2xl shadow-md text-center">
+                👈 ซ้าย
+            </button>
+            <button id="btnRight" class="btn-bounce flex-1 bg-indigo-700/80 active:bg-indigo-500 border-2 border-indigo-400 text-white font-bold py-4 rounded-2xl text-2xl shadow-md text-center">
+                ขวา 👉
+            </button>
+        </div>
+
+        <!-- คำอธิบายสำหรับคุณครูนำไปสอนนักเรียน -->
+        <footer class="mt-4 p-3 bg-indigo-900/40 rounded-xl text-xs text-indigo-300 text-center w-full">
+            💡 <strong>สาระน่ารู้คอมพิวเตอร์:</strong> เกมนี้ทำงานด้วยระบบ <em>Game Loop</em> (การวนลูปวาดภาพสลับคำนวณตำแหน่ง 60 ครั้ง/วินาที) และใช้การตรวจจับการชนกัน (Collision Detection)
+        </footer>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. ส่วนตั้งค่าตัวแปรหลักของเกม (Game Variables)
+        // ==========================================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ตัวแปรสถานะเกม
+        let score = 0;
+        let highScore = localStorage.getItem('star_knight_highscore') || 0;
+        let lives = 3;
+        let isGameOver = false;
+        let isGameRunning = false;
+        let animationFrameId;
+
+        // แสดงสถิติสูงสุดตั้งเริ่มต้น
+        document.getElementById('highScoreText').innerText = highScore;
+
+        // ==========================================
+        // 2. ตัวแปรตัวละครผู้เล่น (Player)
+        // ==========================================
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 70,
+            width: 50,
+            height: 50,
+            speed: 7,
+            dx: 0,
+            color: '#38bdf8'
+        };
+
+        // ตัวแปรเก็บปุ่มที่กำลังถูกกด
+        const keys = {
+            left: false,
+            right: false
+        };
+
+        // ตัวแปรเก็บรายการไอเท็ม (ดาว, อัศวิน, ระเบิด)
+        let items = [];
+        let particles = [];
+        let spawnTimer = 0;
+        let difficultyMultiplier = 1;
+
+        // ==========================================
+        // 3. ระบบเสียงสังเคราะห์ด้วย Web Audio API (ไม่ต้องโหลดไฟล์ภายนอก)
+        // ==========================================
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioCtx();
+            }
+        }
+
+        // เล่นเสียงเมื่อเก็บดาวได้
+        function playSoundStar() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // โน้ต D5
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // โน้ต A5
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // เล่นเสียงเมื่อชนอุปสรรค
+        function playSoundHit() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        }
+
+        // ==========================================
+        // 4. การวาดตัวละครผู้เล่น (Draw Player)
+        // ==========================================
+        function drawPlayer() {
+            // วาดตัวละครเด็กน้อยชุดอวกาศน่ารัก
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+
+            // เงาของตัวละคร
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(0, 22, 20, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ตัวหมวกอวกาศ/หัว
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.arc(0, -2, 22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // หน้ากากหมวก (Visor)
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.arc(0, -2, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            // แสงสะท้อนบนหน้ากาก
+            ctx.fillStyle = '#7dd3fc';
+            ctx.beginPath();
+            ctx.arc(-4, -6, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ตัวชุด (Body)
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.roundRect(-16, 8, 32, 18, 6);
+            ctx.fill();
+
+            // ตราสัญลักษณ์ดาวหน้าอก
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('★', 0, 21);
+
+            ctx.restore();
+        }
+
+        // ==========================================
+        // 5. การจัดการสิ่งของที่ตกลงมา (Stars, Robots, Bombs)
+        // ==========================================
+        function createItem() {
+            const size = 36;
+            const x = Math.random() * (canvas.width - size - 20) + 10;
+            const speed = (2.5 + Math.random() * 2) * difficultyMultiplier;
+            
+            // สุ่มประเภทไอเท็ม: 55% ดาว, 25% อัศวินหุ่นยนต์, 20% ระเบิด
+            const rand = Math.random();
+            let type = 'star';
+            if (rand > 0.55 && rand <= 0.80) {
+                type = 'robot';
+            } else if (rand > 0.80) {
+                type = 'bomb';
+            }
+
+            items.push({
+                x: x,
+                y: -size,
+                width: size,
+                height: size,
+                speed: speed,
+                type: type,
+                rotation: 0,
+                rotSpeed: (Math.random() - 0.5) * 0.08
+            });
+        }
+
+        // วาดรูปดาว 5 แฉก
+        function drawStarShape(cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx;
+            let y = cy;
+            let step = Math.PI / spikes;
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x, y);
+                rot += step;
+            }
+            ctx.lineTo(cx, cy - outerRadius);
+            ctx.closePath();
+            ctx.fillStyle = '#fbbf24';
+            ctx.fill();
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // วาดไอเท็มตามประเภท
+        function drawItems() {
+            items.forEach(item => {
+                ctx.save();
+                ctx.translate(item.x + item.width / 2, item.y + item.height / 2);
+                ctx.rotate(item.rotation);
+
+                if (item.type === 'star') {
+                    // วาดดาวเรืองแสง
+                    drawStarShape(0, 0, 5, 16, 8);
+                } else if (item.type === 'robot') {
+                    // วาดอัศวินหุ่นยนต์ (Robot Knight)
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillRect(-14, -14, 28, 28); // หัวหุ่นยนต์
+                    ctx.strokeStyle = '#475569';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-14, -14, 28, 28);
+
+                    // ตาของหุ่นยนต์ (เรืองแสงสีแดง)
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-10, -6, 20, 5);
+
+                    // เสาอากาศบนหัว
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -14);
+                    ctx.lineTo(0, -20);
+                    ctx.stroke();
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.arc(0, -20, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (item.type === 'bomb') {
+                    // วาดระเบิดสีดำมีชนวน
+                    ctx.fillStyle = '#1e293b';
+                    ctx.beginPath();
+                    ctx.arc(0, 2, 14, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // สายชนวน
+                    ctx.strokeStyle = '#d97706';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -12);
+                    ctx.quadraticCurveTo(8, -18, 6, -22);
+                    ctx.stroke();
+
+                    // ประกายไฟชนวน
+                    ctx.fillStyle = '#f97316';
+                    ctx.beginPath();
+                    ctx.arc(6, -22, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            });
+        }
+
+        // ==========================================
+        // 6. ระบบเอฟเฟกต์ละอองประกาย (Particle System)
+        // ==========================================
+        function createParticles(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    radius: Math.random() * 4 + 2,
+                    color: color,
+                    alpha: 1,
+                    life: 0.03 + Math.random() * 0.02
+                });
+            }
+        }
+
+        function updateAndDrawParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.life;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // ==========================================
+        // 7. การคำนวณตำแหน่งและการชนกัน (Collision Detection)
+        // ==========================================
+        function updatePositions() {
+            // เคลื่อนที่ตัวละคร
+            if (keys.left && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys.right && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+
+            // สร้างไอเท็มตกลงมาเป็นระยะๆ
+            spawnTimer++;
+            if (spawnTimer % Math.max(25, Math.floor(50 / difficultyMultiplier)) === 0) {
+                createItem();
+            }
+
+            // อัปเดตตำแหน่งไอเท็มและตรวจการชน
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += item.speed;
+                item.rotation += item.rotSpeed;
+
+                // อัลกอริทึมการชนกันแบบกล่อง AABB (Axis-Aligned Bounding Box)
+                const isColliding = 
+                    player.x < item.x + item.width &&
+                    player.x + player.width > item.x &&
+                    player.y < item.y + item.height &&
+                    player.y + player.height > item.y;
+
+                if (isColliding) {
+                    if (item.type === 'star') {
+                        // เก็บดาวสำเร็จ (+1 คะแนน)
+                        score += 1;
+                        document.getElementById('scoreText').innerText = score;
+                        playSoundStar();
+                        createParticles(item.x + item.width / 2, item.y + item.height / 2, '#fbbf24', 10);
+
+                        // เพิ่มความยากตามคะแนน
+                        if (score % 5 === 0) {
+                            difficultyMultiplier += 0.15;
+                        }
+                    } else {
+                        // โดนอัศวินหุ่นยนต์หรือระเบิด (-1 พลังชีวิต)
+                        lives -= 1;
+                        updateLivesUI();
+                        playSoundHit();
+                        createParticles(item.x + item.width / 2, item.y + item.height / 2, '#ef4444', 15);
+
+                        // สั่นหน้าจอเล็กน้อยเพื่อความตื่นเต้น
+                        canvas.style.transform = 'translate(0, 5px)';
+                        setTimeout(() => canvas.style.transform = 'translate(0, 0)', 100);
+
+                        if (lives <= 0) {
+                            gameOver();
+                        }
+                    }
+
+                    // ลบไอเท็มที่ถูกชนออก
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                // หากไอเท็มตกเลยขอบล่างหน้าจอ ให้ลบทิ้ง
+                if (item.y > canvas.height) {
+                    items.splice(i, 1);
+                }
+            }
+        }
+
+        // อัปเดตการแสดงผลหัวใจพลังชีวิต
+        function updateLivesUI() {
+            const container = document.getElementById('livesContainer');
+            let heartsHTML = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < lives) {
+                    heartsHTML += '<span>❤️</span>';
+                } else {
+                    heartsHTML += '<span style="opacity: 0.25;">🖤</span>';
+                }
+            }
+            container.innerHTML = heartsHTML;
+        }
+
+        // ==========================================
+        // 8. การวาดพื้นหลัง และ Game Loop
+        // ==========================================
+        function drawBackground() {
+            // วาดเส้นตารางแนวอวกาศ
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.fillRect(i, 0, 1, canvas.height);
+            }
+            for (let i = 0; i < canvas.height; i += 40) {
+                ctx.fillRect(0, i, canvas.width, 1);
+            }
+        }
+
+        // ลูปหลักของเกม (Game Loop)
+        function gameLoop() {
+            if (!isGameRunning) return;
+
+            // ล้างหน้าจอ Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // วาดส่วนประกอบต่างๆ
+            drawBackground();
+            updatePositions();
+            drawItems();
+            drawPlayer();
+            updateAndDrawParticles();
+
+            // เรียกใช้ลูปถัดไป (~60 FPS)
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // ==========================================
+        // 9. การรับค่าการควบคุม (Keyboard & Touch Input)
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = true;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = false;
+            }
+        });
+
+        // ควบคุมผ่านปุ่มสัมผัสบนจอโทรศัพท์/แท็บเล็ต
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+
+        const bindTouch = (elem, keyName) => {
+            elem.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+            elem.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+            elem.addEventListener('mousedown', () => { keys[keyName] = true; });
+            elem.addEventListener('mouseup', () => { keys[keyName] = false; });
+            elem.addEventListener('mouseleave', () => { keys[keyName] = false; });
+        };
+
+        bindTouch(btnLeft, 'left');
+        bindTouch(btnRight, 'right');
+
+        // ==========================================
+        // 10. ระบบเริ่มเกม และ จบเกม (Start & Game Over)
+        // ==========================================
+        function startGame() {
+            initAudio();
+
+            // รีเซ็ตตัวแปรทั้งหมด
+            score = 0;
+            lives = 3;
+            items = [];
+            particles = [];
+            spawnTimer = 0;
+            difficultyMultiplier = 1;
+            isGameOver = false;
+            isGameRunning = true;
+
+            player.x = canvas.width / 2 - player.width / 2;
+
+            // อัปเดตหน้าจอ UI
+            document.getElementById('scoreText').innerText = '0';
+            updateLivesUI();
+            document.getElementById('gameModal').classList.add('hidden');
+
+            // เริ่มวนลูปเกม
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
+        }
+
+        function gameOver() {
+            isGameRunning = false;
+            isGameOver = true;
+
+            // ตรวจสอบคะแนนสูงสุด
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('star_knight_highscore', highScore);
+                document.getElementById('highScoreText').innerText = highScore;
+            }
+
+            // แสดง Modal จบเกม
+            const modal = document.getElementById('gameModal');
+            document.getElementById('modalEmoji').innerText = '💥';
+            document.getElementById('modalTitle').innerText = 'จบเกมแล้ว!';
+            document.getElementById('modalDesc').innerText = `คุณทำคะแนนได้ทั้งหมด ${score} คะแนน! พยายามได้ดีมากครับ 👍`;
+            document.getElementById('startBtn').innerText = '🔄 เล่นใหม่อีกครั้ง';
+            modal.classList.remove('hidden');
+        }
+
+        // วาดภาพหน้าเริ่มต้น
+        drawBackground();
+        drawPlayer();
+    </script>
+</body>
+</html>
